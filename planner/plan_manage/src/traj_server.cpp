@@ -4,9 +4,11 @@
 #include "quadrotor_msgs/PositionCommand.h"
 #include "std_msgs/Empty.h"
 #include "visualization_msgs/Marker.h"
+#include "mavros_msgs/PositionTarget.h"
 #include <ros/ros.h>
 
 ros::Publisher pos_cmd_pub;
+ros::Publisher mavros_pos_cmd_pub;
 
 quadrotor_msgs::PositionCommand cmd;
 double pos_gain[3] = {0, 0, 0};
@@ -21,7 +23,7 @@ ros::Time start_time_;
 int traj_id_;
 
 // yaw control
-double last_yaw_, last_yaw_dot_;
+double last_yaw_ = 0.0, last_yaw_dot_ = 0.0;
 double time_forward_;
 
 void bsplineCallback(ego_planner::BsplineConstPtr msg)
@@ -147,6 +149,10 @@ std::pair<double, double> calculate_yaw(double t_cur, Eigen::Vector3d &pos, ros:
         yawdot = (yaw_temp - last_yaw_) / (time_now - time_last).toSec();
     }
   }
+  
+  if((time_now - time_last).toSec() == 0){
+    yawdot = 0.0;
+  }
 
   if (fabs(yaw - last_yaw_) <= max_yaw_change)
     yaw = 0.5 * last_yaw_ + 0.5 * yaw; // nieve LPF
@@ -225,8 +231,28 @@ void cmdCallback(const ros::TimerEvent &e)
   cmd.yaw_dot = yaw_yawdot.second;
 
   last_yaw_ = cmd.yaw;
-
   pos_cmd_pub.publish(cmd);
+
+  mavros_msgs::PositionTarget mavros_cmd;
+  mavros_cmd.header.frame_id = "map";
+  mavros_cmd.header.stamp = ros::Time::now();
+  mavros_cmd.type_mask = 0b000000000000;
+  mavros_cmd.coordinate_frame = 1;
+  mavros_cmd.position.x = pos(0);
+  mavros_cmd.position.y = pos(1);
+  mavros_cmd.position.z = pos(2);
+
+  mavros_cmd.velocity.x = vel(0);
+  mavros_cmd.velocity.y = vel(1);
+  mavros_cmd.velocity.z = vel(2);
+
+  mavros_cmd.acceleration_or_force.x = acc(0);
+  mavros_cmd.acceleration_or_force.y = acc(1);
+  mavros_cmd.acceleration_or_force.z = acc(2);
+
+  mavros_cmd.yaw = (float)yaw_yawdot.first;
+  mavros_cmd.yaw_rate = (float)yaw_yawdot.second;
+  mavros_pos_cmd_pub.publish(mavros_cmd);
 }
 
 int main(int argc, char **argv)
@@ -238,6 +264,7 @@ int main(int argc, char **argv)
   ros::Subscriber bspline_sub = node.subscribe("planning/bspline", 10, bsplineCallback);
 
   pos_cmd_pub = node.advertise<quadrotor_msgs::PositionCommand>("/position_cmd", 50);
+  mavros_pos_cmd_pub = node.advertise<mavros_msgs::PositionTarget>("/uav0/mavros/setpoint_raw/local", 50);
 
   ros::Timer cmd_timer = node.createTimer(ros::Duration(0.01), cmdCallback);
 
