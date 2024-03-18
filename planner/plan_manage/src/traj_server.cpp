@@ -263,8 +263,8 @@ int main(int argc, char **argv)
 
   ros::Subscriber bspline_sub = node.subscribe("planning/bspline", 10, bsplineCallback);
 
-  pos_cmd_pub = node.advertise<quadrotor_msgs::PositionCommand>("/position_cmd", 50);
-  mavros_pos_cmd_pub = node.advertise<mavros_msgs::PositionTarget>("/uav0/mavros/setpoint_raw/local", 50);
+  pos_cmd_pub = node.advertise<quadrotor_msgs::PositionCommand>("position_cmd", 50);
+  mavros_pos_cmd_pub = node.advertise<mavros_msgs::PositionTarget>("mavros/setpoint_raw/local", 50);
 
   ros::Timer cmd_timer = node.createTimer(ros::Duration(0.01), cmdCallback);
 
