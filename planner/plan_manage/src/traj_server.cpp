@@ -5,7 +5,7 @@
 #include "std_msgs/Empty.h"
 #include "visualization_msgs/Marker.h"
 #include "mavros_msgs/PositionTarget.h"
-#include "std_msgs/Int32.h"
+#include "std_msgs/Float32MultiArray.h"
 #include <ros/ros.h>
 
 ros::Publisher pos_cmd_pub;
@@ -70,6 +70,13 @@ void bsplineCallback(ego_planner::BsplineConstPtr msg)
   traj_duration_ = traj_[0].getTimeSum();
 
   receive_traj_ = true;
+}
+
+int ctrl_state = 0;
+float target_yaw = 0.0;
+void state_cb(const std_msgs::Float32MultiArray::ConstPtr &msg){
+  ctrl_state = (int)msg->data.at(0);
+  target_yaw = msg->data.at(1);
 }
 
 std::pair<double, double> calculate_yaw(double t_cur, Eigen::Vector3d &pos, ros::Time &time_now, ros::Time &time_last)
@@ -252,8 +259,18 @@ void cmdCallback(const ros::TimerEvent &e)
   mavros_cmd.acceleration_or_force.y = acc(1);
   mavros_cmd.acceleration_or_force.z = acc(2);
 
-  mavros_cmd.yaw = (float)yaw_yawdot.first;
-  mavros_cmd.yaw_rate = (float)yaw_yawdot.second;
+  switch (ctrl_state)
+  {
+  case 0:
+    mavros_cmd.yaw = (float)yaw_yawdot.first;
+    mavros_cmd.yaw_rate = (float)yaw_yawdot.second;
+    break;
+  
+  case 1:
+    mavros_cmd.type_mask = 0b100000000000;
+    mavros_cmd.yaw = target_yaw;
+    break;
+  }
   mavros_pos_cmd_pub.publish(mavros_cmd);
 }
 
@@ -264,10 +281,10 @@ int main(int argc, char **argv)
   ros::NodeHandle nh("~");
 
   ros::Subscriber bspline_sub = node.subscribe("planning/bspline", 10, bsplineCallback);
+  ros::Subscriber state_sub = node.subscribe("ctrl_state", 10, state_cb);
 
   pos_cmd_pub = node.advertise<quadrotor_msgs::PositionCommand>("position_cmd", 50);
   mavros_pos_cmd_pub = node.advertise<mavros_msgs::PositionTarget>("mavros/setpoint_raw/local", 50);
-  goal_reach_pub = node.advertise<std_msgs::Int32>("goal_reached", 10);
 
   ros::Timer cmd_timer = node.createTimer(ros::Duration(0.01), cmdCallback);
 
