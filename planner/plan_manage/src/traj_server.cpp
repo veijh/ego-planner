@@ -5,10 +5,12 @@
 #include "std_msgs/Empty.h"
 #include "visualization_msgs/Marker.h"
 #include "mavros_msgs/PositionTarget.h"
+#include "std_msgs/Int32.h"
 #include <ros/ros.h>
 
 ros::Publisher pos_cmd_pub;
 ros::Publisher mavros_pos_cmd_pub;
+ros::Publisher goal_reach_pub;
 
 quadrotor_msgs::PositionCommand cmd;
 double pos_gain[3] = {0, 0, 0};
@@ -211,7 +213,7 @@ void cmdCallback(const ros::TimerEvent &e)
   time_last = time_now;
 
   cmd.header.stamp = time_now;
-  cmd.header.frame_id = "world";
+  cmd.header.frame_id = "map";
   cmd.trajectory_flag = quadrotor_msgs::PositionCommand::TRAJECTORY_STATUS_READY;
   cmd.trajectory_id = traj_id_;
 
@@ -265,6 +267,7 @@ int main(int argc, char **argv)
 
   pos_cmd_pub = node.advertise<quadrotor_msgs::PositionCommand>("position_cmd", 50);
   mavros_pos_cmd_pub = node.advertise<mavros_msgs::PositionTarget>("mavros/setpoint_raw/local", 50);
+  goal_reach_pub = node.advertise<std_msgs::Int32>("goal_reached", 10);
 
   ros::Timer cmd_timer = node.createTimer(ros::Duration(0.01), cmdCallback);
 

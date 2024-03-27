@@ -131,7 +131,7 @@ namespace ego_planner
   void PlanningVisualization::displayGoalPoint(Eigen::Vector3d goal_point, Eigen::Vector4d color, const double scale, int id)
   {
     visualization_msgs::Marker sphere;
-    sphere.header.frame_id = "world";
+    sphere.header.frame_id = "map";
     sphere.header.stamp = ros::Time::now();
     sphere.type = visualization_msgs::Marker::SPHERE;
     sphere.action = visualization_msgs::Marker::ADD;
